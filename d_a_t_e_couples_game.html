@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>D.A.T.E. Couples Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'cursive': ['"Dancing Script"', 'cursive'],
+                        'sans': ['Poppins', 'sans-serif'],
+                    },
+                    colors: {
+                        'date-dark': '#0f0a0d',
+                        'date-neon': '#ff1e56',
+                        'date-light': '#fdf2f5',
+                        'date-text': '#4a3b42',
+                        'date-accent': '#c26d7c',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #000;
+            color: #4a3b42;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #app-container {
+            max-width: 480px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background-color: #fdf2f5;
+            position: relative;
+            overflow-x: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            min-height: 100vh;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        .screen.active {
+            display: flex;
+            opacity: 1;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Themes */
+        .theme-dark {
+            background-color: #0f0a0d;
+            background-image: radial-gradient(circle at 50% 50%, #2a0b16 0%, #0f0a0d 70%);
+            color: white;
+        }
+        .theme-light {
+            background-color: #fdf2f5;
+            color: #4a3b42;
+        }
+
+        /* Typography */
+        .neon-text {
+            color: #ff1e56;
+            text-shadow: 0 0 10px rgba(255, 30, 86, 0.7), 0 0 20px rgba(255, 30, 86, 0.5);
+        }
+        .cursive-title {
+            font-family: 'Dancing Script', cursive;
+        }
+        
+        /* Interactive Elements */
+        .btn-primary {
+            background: linear-gradient(135deg, #ff1e56, #d91444);
+            color: white;
+            border-radius: 9999px;
+            padding: 16px 32px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 8px 15px rgba(255, 30, 86, 0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary:active {
+            transform: scale(0.97);
+            box-shadow: 0 4px 10px rgba(255, 30, 86, 0.3);
+        }
+        .btn-primary:disabled {
+            background: #cbd5e1;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Forms */
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .input-num {
+            font-weight: 700;
+            color: #c26d7c;
+            width: 20px;
+        }
+        .input-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #f9d8df;
+            padding: 8px 4px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            color: #4a3b42;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-bottom-color: #ff1e56;
+        }
+
+        /* Canvas */
+        #spiralCanvas {
+            touch-action: none;
+            background-color: transparent;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+        .canvas-container {
+            border: 2px dashed #ffb3c6;
+            border-radius: 20px;
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            position: relative;
+            background: white;
+        }
+
+        /* Elimination Animations */
+        .elim-item {
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .elim-item::after {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            width: 0%;
+            height: 2px;
+            background-color: #ff1e56;
+            transition: width 0.4s ease-out;
+        }
+        .elim-item.crossed {
+            opacity: 0.3;
+        }
+        .elim-item.crossed::after {
+            width: calc(100% - 16px);
+        }
+        .elim-item.counting {
+            background-color: #ffe4e8;
+            transform: scale(1.05);
+            font-weight: 600;
+        }
+        .elim-item.winner {
+            background-color: #fff0f3;
+            border: 1px solid #ffb3c6;
+            font-weight: 600;
+            color: #d91444;
+        }
+        .cat-locked {
+            opacity: 0.5;
+            filter: grayscale(0.5);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ffb3c6; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+
+        <!-- SCREEN 1: START -->
+        <div id="screen-start" class="screen theme-dark active p-8 flex flex-col justify-between overflow-hidden">
+            <div class="mt-12 text-gray-300 text-xs tracking-widest leading-loose z-10">
+                <p>GOOD FOOD</p>
+                <p>FUN PLANS</p>
+                <p>SWEET TREATS</p>
+                <p>GREAT COMPANY</p>
+            </div>
+
+            <div class="text-center my-auto z-10">
+                <h2 class="cursive-title text-4xl text-white mb-2">Let's play</h2>
+                <h1 class="cursive-title text-[5.5rem] leading-none neon-text mb-4 tracking-wider">D.A.T.E.</h1>
+                <p class="text-[9px] font-medium tracking-widest text-pink-200 uppercase">Dinner • Activity • Treat • Entertainment</p>
+            </div>
+
+            <div class="mb-12 z-10">
+                <button onclick="goToScreen('screen-setup')" class="btn-primary">
+                    GET STARTED <span>→</span>
+                </button>
+            </div>
+            
+            <!-- Decorative Elements -->
+            <div class="absolute top-20 right-4 opacity-40 text-date-neon animate-float">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /></svg>
+            </div>
+            <div class="absolute bottom-40 left-[-20px] opacity-20 text-pink-400 animate-float" style="animation-delay: 1s;">
+                <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /></svg>
+            </div>
+        </div>
+
+        <!-- SCREEN 2: SETUP -->
+        <div id="screen-setup" class="screen theme-light p-6 overflow-y-auto">
+            <div class="text-center mb-6 pt-4">
+                <h1 class="cursive-title text-5xl text-date-neon mb-1">D.A.T.E.</h1>
+                <p class="text-[9px] font-semibold tracking-widest text-gray-500 mb-4">DINNER • ACTIVITY • TREAT • ENTERTAINMENT</p>
+                <p class="text-sm text-date-text px-4 font-light">Add 4 of your favourite options in each category. Let's see where the game takes us...</p>
+            </div>
+
+            <form id="setup-form" class="flex-grow space-y-5 pb-28">
+                <!-- Injected via JS -->
+            </form>
+
+            <div class="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto p-4 bg-gradient-to-t from-date-light via-date-light to-transparent z-20">
+                <button type="button" id="btn-submit-setup" class="btn-primary">
+                    LET'S PLAY <span>→</span>
+                </button>
+                <p id="setup-error" class="text-red-500 text-xs text-center mt-2 hidden bg-white/80 rounded-full px-2 py-1 inline-block mx-auto">Please fill out all 16 options!</p>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: BOARD -->
+        <div id="screen-board" class="screen theme-light p-6 overflow-y-auto">
+            <div class="text-center mb-6 pt-4">
+                <h1 class="cursive-title text-4xl text-date-text mb-2">Our <span class="text-date-neon">D.A.T.E.</span> Board</h1>
+                <p class="text-sm text-date-text font-light">Here are your options. Time to find your magic number!</p>
+            </div>
+
+            <div id="board-container" class="grid grid-cols-2 gap-4 pb-28">
+                <!-- Injected via JS -->
+            </div>
+
+            <div class="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto p-4 bg-gradient-to-t from-date-light via-date-light to-transparent z-20">
+                <button onclick="goToScreen('screen-spiral')" class="btn-primary" style="background: #111;">
+                    DRAW YOUR SPIRAL <span>→</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- SCREEN 4: SPIRAL -->
+        <div id="screen-spiral" class="screen theme-light p-6 flex flex-col">
+            <div class="text-center mb-6 pt-4">
+                <h1 class="cursive-title text-4xl text-date-text mb-2">Draw a Spiral <span class="text-date-neon">♡</span></h1>
+                <p class="text-sm text-date-text font-light px-4">Partner 1 draws. Partner 2 says STOP!<br>We'll count the lines.</p>
+            </div>
+
+            <div class="flex-grow flex flex-col items-center justify-center space-y-6">
+                <div class="canvas-container shadow-inner p-1 bg-white">
+                    <canvas id="spiralCanvas"></canvas>
+                    <div id="canvas-hint" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
+                        <span class="text-xs font-cursive text-gray-400 rotate-[-15deg] text-xl">Draw here with your finger...</span>
+                    </div>
+                </div>
+                
+                <div class="flex w-full gap-4">
+                    <button id="btn-clear" class="flex-1 py-3 bg-white text-date-text border border-gray-200 rounded-full font-semibold text-sm shadow-sm active:bg-gray-50 flex items-center justify-center gap-2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        CLEAR
+                    </button>
+                    <button id="btn-stop" class="flex-1 py-3 bg-date-neon text-white rounded-full font-bold text-sm shadow-md active:bg-red-600 animate-pulse-slow">
+                        STOP!
+                    </button>
+                </div>
+
+                <div class="bg-white px-6 py-4 rounded-3xl shadow-sm w-full border border-pink-100 text-center">
+                    <p class="text-xs font-semibold text-gray-500 mb-3 tracking-wide">Spiral Lines (Turns)</p>
+                    <div class="flex justify-center items-center gap-6">
+                        <button id="btn-dec" class="w-10 h-10 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-xl active:bg-gray-200 text-date-text font-medium">-</button>
+                        <span id="turn-count" class="text-4xl font-bold text-date-neon w-12">0</span>
+                        <button id="btn-inc" class="w-10 h-10 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-xl active:bg-gray-200 text-date-text font-medium">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 mb-4">
+                <button id="btn-confirm-spiral" class="btn-primary" disabled style="background: #111;">
+                    CONFIRM NUMBER <span>→</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- SCREEN 5: ELIMINATION -->
+        <div id="screen-elimination" class="screen theme-light p-6 overflow-y-auto">
+            <div class="text-center mb-4 pt-4 sticky top-0 bg-date-light/95 backdrop-blur-sm z-20 pb-4 border-b border-pink-100/50">
+                <h1 class="cursive-title text-4xl text-date-text mb-1">The Elimination Begins! <span class="text-date-neon text-2xl">♡</span></h1>
+                <p id="elim-subtitle" class="text-xs text-date-accent font-light px-2 mb-3">Counting globally across all categories.</p>
+                
+                <div class="flex justify-center items-center gap-4">
+                    <button id="btn-pause-play" class="bg-white border border-gray-200 rounded-full px-4 py-2 text-xs font-bold text-date-text shadow-sm flex items-center gap-2">
+                        <svg id="icon-pause" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
+                        <span id="text-pause-play">PAUSE</span>
+                    </button>
+                    <div class="text-xs font-bold text-gray-400 tracking-wider uppercase bg-gray-100 px-3 py-1 rounded-full" id="elim-status-text">Eliminating...</div>
+                </div>
+            </div>
+
+            <div id="elimination-board" class="space-y-4 pb-28">
+                <!-- Injected via JS -->
+            </div>
+
+            <div class="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto p-4 bg-gradient-to-t from-date-light via-date-light to-transparent z-20 hidden" id="elim-results-container">
+                <button onclick="goToScreen('screen-results')" class="btn-primary">
+                    SEE FINAL RESULTS <span>→</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- SCREEN 6: RESULTS -->
+        <div id="screen-results" class="screen theme-dark p-6 overflow-y-auto flex-col justify-between">
+            <div>
+                <div class="text-center mb-8 pt-8">
+                    <h1 class="cursive-title text-5xl text-white mb-2">It's a Date! <span class="text-date-neon">♡</span></h1>
+                    <p class="text-sm text-pink-200 font-light px-4">Different ideas. One amazing night.<br>You. Me. Always a good plan.</p>
+                </div>
+
+                <div id="results-cards" class="space-y-3">
+                    <!-- Injected via JS -->
+                </div>
+            </div>
+
+            <div class="mt-10 mb-6 space-y-4">
+                <button id="btn-share" class="w-full py-4 bg-[#1a1114] border border-pink-900/50 text-date-neon rounded-2xl font-semibold text-sm shadow-md active:bg-[#2a1a20] flex justify-center items-center gap-2 transition-colors">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" /></svg>
+                    SHARE PLAN
+                </button>
+                <div class="flex gap-3">
+                    <button onclick="playAgainSame()" class="flex-1 py-3 bg-white text-date-text rounded-2xl font-bold text-xs shadow-md active:bg-gray-100 text-center flex flex-col items-center justify-center gap-1">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        <span>PLAY AGAIN</span>
+                        <span class="font-normal text-[9px] text-gray-500">(same options)</span>
+                    </button>
+                    <button onclick="startFresh()" class="flex-1 py-3 bg-white text-date-text rounded-2xl font-bold text-xs shadow-md active:bg-gray-100 text-center flex flex-col items-center justify-center gap-1">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        <span>NEW GAME</span>
+                        <span class="font-normal text-[9px] text-gray-500">(new options)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const CATEGORIES = [
+            { id: 'dinner', name: 'DINNER', icon: '🍴', color: '#ffb3c6', lightColor: '#fff0f3' },
+            { id: 'activity', name: 'ACTIVITY', icon: '📸', color: '#c2e0d3', lightColor: '#f0fdf4' },
+            { id: 'treat', name: 'TREAT', icon: '🍦', color: '#ffd6e0', lightColor: '#fff0f3' },
+            { id: 'entertainment', name: 'ENTERTAINMENT', icon: '🎬', color: '#c7ceea', lightColor: '#f5f3ff' }
+        ];
+
+        let gameState = {
+            options: {}, // Keyed by category ID
+            eliminationNumber: 0,
+            isPaused: false
+        };
+
+        // --- NAVIGATION ---
+        function goToScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            window.scrollTo(0, 0);
+
+            if (screenId === 'screen-setup' && Object.keys(gameState.options).length === 0) {
+                renderSetupForm();
+            } else if (screenId === 'screen-board') {
+                renderBoard();
+            } else if (screenId === 'screen-spiral') {
+                initCanvas();
+            } else if (screenId === 'screen-elimination') {
+                renderEliminationBoard();
+                startGlobalElimination();
+            } else if (screenId === 'screen-results') {
+                renderResults();
+            }
+        }
+
+        function renderSetupForm() {
+            const form = document.getElementById('setup-form');
+            form.innerHTML = '';
+            
+            CATEGORIES.forEach(cat => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 relative';
+                
+                let inputsHTML = '';
+                for(let i = 1; i <= 4; i++) {
+                    inputsHTML += `
+                        <div class="input-row">
+                            <span class="input-num text-sm">${i}</span>
+                            <input type="text" id="input-${cat.id}-${i}" class="input-field" placeholder="e.g. Option ${i}" required>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-2 mb-4 bg-[${cat.lightColor}] rounded-full px-3 py-1 inline-flex" style="background-color: ${cat.lightColor}">
+                        <span class="text-lg">${cat.icon}</span>
+                        <h2 class="font-bold text-xs tracking-widest text-gray-800"><span class="text-date-neon text-sm mr-0.5">${cat.name.charAt(0)}</span>${cat.name.substring(1)}</h2>
+                    </div>
+                    ${inputsHTML}
+                `;
+                form.appendChild(card);
+            });
+        }
+
+        document.getElementById('btn-submit-setup').addEventListener('click', () => {
+            let isValid = true;
+            let tempOptions = {};
+            
+            CATEGORIES.forEach(cat => {
+                tempOptions[cat.id] = [];
+                for(let i=1; i<=4; i++) {
+                    const val = document.getElementById(`input-${cat.id}-${i}`).value.trim();
+                    if (!val) isValid = false;
+                    tempOptions[cat.id].push(val);
+                }
+            });
+
+            if (isValid) {
+                document.getElementById('setup-error').classList.add('hidden');
+                gameState.options = tempOptions;
+                goToScreen('screen-board');
+            } else {
+                document.getElementById('setup-error').classList.remove('hidden');
+            }
+        });
+
+        function renderBoard() {
+            const container = document.getElementById('board-container');
+            container.innerHTML = '';
+
+            CATEGORIES.forEach(cat => {
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-3xl shadow-sm bg-white border-t-[6px] flex flex-col h-full`;
+                card.style.borderColor = cat.color;
+
+                const list = gameState.options[cat.id].map((opt, idx) => 
+                    `<div class="flex gap-2 text-xs mb-2 items-center"><span class="text-date-neon font-bold opacity-70">${idx+1}</span> <span class="truncate text-gray-700">${opt}</span></div>`
+                ).join('');
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-center gap-1 mb-4 bg-gray-50 rounded-lg py-1">
+                        <span class="text-sm">${cat.icon}</span>
+                        <h3 class="font-bold text-[9px] tracking-widest uppercase text-gray-800">${cat.name}</h3>
+                    </div>
+                    <div class="flex-grow">${list}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        const canvas = document.getElementById('spiralCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let lastPos = {x: 0, y: 0};
+        let totalDistance = 0;
+
+        function initCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#ff1e56';
+            clearCanvasState();
+        }
+
+        function clearCanvasState() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            totalDistance = 0;
+            updateTurnCount(0);
+            document.getElementById('btn-confirm-spiral').disabled = true;
+            document.getElementById('btn-stop').classList.add('animate-pulse-slow');
+            document.getElementById('canvas-hint').style.display = 'flex';
+        }
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        function startDrawing(e) {
+            e.preventDefault();
+            document.getElementById('canvas-hint').style.display = 'none';
+            isDrawing = true;
+            lastPos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(lastPos.x, lastPos.y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const newPos = getPos(e);
+            
+            const dx = newPos.x - lastPos.x;
+            const dy = newPos.y - lastPos.y;
+            totalDistance += Math.sqrt(dx*dx + dy*dy);
+
+            ctx.lineTo(newPos.x, newPos.y);
+            ctx.stroke();
+            lastPos = newPos;
+
+            // Rough estimation for visual feedback during drawing
+            const estimatedTurns = Math.floor(totalDistance / 200); 
+            if (estimatedTurns > 0 && estimatedTurns <= 99) {
+                updateTurnCount(estimatedTurns);
+            }
+        }
+
+        function stopDrawing(e) {
+            if (e) e.preventDefault();
+            isDrawing = false;
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        canvas.addEventListener('touchstart', startDrawing, {passive: false});
+        canvas.addEventListener('touchmove', draw, {passive: false});
+        canvas.addEventListener('touchend', stopDrawing);
+
+        function updateTurnCount(val) {
+            gameState.eliminationNumber = val;
+            document.getElementById('turn-count').textContent = val;
+            if(val > 0) document.getElementById('btn-confirm-spiral').disabled = false;
+        }
+
+        document.getElementById('btn-clear').addEventListener('click', clearCanvasState);
+        document.getElementById('btn-stop').addEventListener('click', () => {
+            isDrawing = false;
+            document.getElementById('btn-stop').classList.remove('animate-pulse-slow');
+            if (gameState.eliminationNumber === 0) updateTurnCount(5); // Fallback
+        });
+
+        document.getElementById('btn-dec').addEventListener('click', () => {
+            if (gameState.eliminationNumber > 1) updateTurnCount(gameState.eliminationNumber - 1);
+        });
+        document.getElementById('btn-inc').addEventListener('click', () => {
+            if (gameState.eliminationNumber < 99) updateTurnCount(gameState.eliminationNumber + 1);
+        });
+
+        document.getElementById('btn-confirm-spiral').addEventListener('click', () => {
+            goToScreen('screen-elimination');
+        });
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('screen-spiral').classList.contains('active')) {
+                initCanvas();
+            }
+        });
+
+        function renderEliminationBoard() {
+            gameState.isPaused = false;
+            updatePausePlayUI();
+            document.getElementById('elim-subtitle').textContent = `Crossing off every ${gameState.eliminationNumber}th option across all categories.`;
+            document.getElementById('elim-results-container').classList.add('hidden');
+            document.getElementById('elim-status-text').textContent = "Eliminating...";
+            
+            const container = document.getElementById('elimination-board');
+            container.innerHTML = '';
+            
+            CATEGORIES.forEach(cat => {
+                const card = document.createElement('div');
+                card.className = `bg-white p-4 rounded-[20px] shadow-sm border-l-4 transition-all duration-300`;
+                card.style.borderLeftColor = cat.color;
+                card.id = `elim-card-${cat.id}`;
+                
+                const list = gameState.options[cat.id].map((opt, idx) => `
+                    <div class="elim-item flex items-center gap-3 text-sm text-gray-700" id="item-${cat.id}-${idx}">
+                        <span class="text-date-neon font-bold text-xs opacity-50 w-3">${idx+1}</span>
+                        <span class="truncate">${opt}</span>
+                    </div>
+                `).join('');
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-lg">${cat.icon}</span>
+                        <h2 class="font-bold text-[10px] tracking-widest text-gray-800 uppercase">${cat.name}</h2>
+                    </div>
+                    <div class="space-y-1">${list}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        // Pause/Play Toggle
+        document.getElementById('btn-pause-play').addEventListener('click', () => {
+            gameState.isPaused = !gameState.isPaused;
+            updatePausePlayUI();
+        });
+
+        function updatePausePlayUI() {
+            const textEl = document.getElementById('text-pause-play');
+            const iconEl = document.getElementById('icon-pause');
+            
+            if (gameState.isPaused) {
+                textEl.textContent = 'PLAY';
+                iconEl.innerHTML = '<path d="M8 5v14l11-7z"/>'; // Play icon
+            } else {
+                textEl.textContent = 'PAUSE';
+                iconEl.innerHTML = '<path d="M6 4h4v16H6zm8 0h4v16h-4z"/>'; // Pause icon
+            }
+        }
+
+        async function startGlobalElimination() {
+            const num = gameState.eliminationNumber;
+            
+            // Build global flat array of items to iterate through
+            // Order: Dinner -> Activity -> Treat -> Entertainment -> loop
+            let allItems = [];
+            CATEGORIES.forEach(cat => {
+                gameState.options[cat.id].forEach((text, idx) => {
+                    allItems.push({ catId: cat.id, idx: idx, active: true });
+                });
+            });
+            // allItems length is 16. Indexes 0-3 Dinner, 4-7 Activity, etc.
+
+            let activeCounts = {};
+            CATEGORIES.forEach(cat => activeCounts[cat.id] = 4);
+
+            let globalIndex = 0;
+            let currentCount = 0;
+
+            // Loop until every category has exactly 1 item left
+            while (Object.values(activeCounts).some(count => count > 1)) {
+                
+                // Handle Pausing
+                while (gameState.isPaused) {
+                    await delay(100);
+                }
+
+                let currentItem = allItems[globalIndex];
+
+                // Check if this item should participate in the count
+                // 1. Must be active (not struck off)
+                // 2. Its category must have >1 items left (categories with 1 left are locked/safe)
+                if (currentItem.active && activeCounts[currentItem.catId] > 1) {
+                    
+                    currentCount++;
+                    const el = document.getElementById(`item-${currentItem.catId}-${currentItem.idx}`);
+                    
+                    // Visual Count Ping
+                    el.classList.add('counting');
+                    await delay(300); // Speed of counting animation
+                    
+                    while (gameState.isPaused) { await delay(100); } // Check pause again
+
+                    if (currentCount === num) {
+                        // Strike it off!
+                        currentItem.active = false;
+                        activeCounts[currentItem.catId]--;
+                        
+                        el.classList.remove('counting');
+                        el.classList.add('crossed');
+                        currentCount = 0; // Reset count
+                        
+                        // Check if this category just got locked (won)
+                        if (activeCounts[currentItem.catId] === 1) {
+                            const card = document.getElementById(`elim-card-${currentItem.catId}`);
+                            card.classList.add('cat-locked');
+                            
+                            // Highlight the winner in this category
+                            const winningItem = allItems.find(i => i.catId === currentItem.catId && i.active);
+                            const winEl = document.getElementById(`item-${winningItem.catId}-${winningItem.idx}`);
+                            winEl.classList.add('winner');
+                        }
+                        
+                        await delay(400); // Pause briefly after a strike
+                    } else {
+                        el.classList.remove('counting');
+                    }
+                }
+
+                // Move to next item in the global circle
+                globalIndex = (globalIndex + 1) % allItems.length;
+            }
+
+            // Elimination Complete
+            document.getElementById('elim-status-text').textContent = "Complete!";
+            document.getElementById('btn-pause-play').style.display = 'none';
+            document.getElementById('elim-results-container').classList.remove('hidden');
+        }
+
+        function renderResults() {
+            const container = document.getElementById('results-cards');
+            container.innerHTML = '';
+
+            CATEGORIES.forEach(cat => {
+                // Find the surviving option
+                const winnerIndex = Array.from(document.getElementById(`elim-card-${cat.id}`).querySelectorAll('.elim-item'))
+                                         .findIndex(el => !el.classList.contains('crossed'));
+                const winnerText = gameState.options[cat.id][winnerIndex];
+
+                const card = document.createElement('div');
+                card.className = 'bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl flex items-center justify-between text-white shadow-lg relative overflow-hidden';
+                
+                // Add a faint background glow matching category color
+                card.innerHTML = `
+                    <div class="absolute inset-0 opacity-20" style="background: linear-gradient(135deg, transparent, ${cat.color});"></div>
+                    <div class="flex items-center gap-4 relative z-10">
+                        <div class="text-3xl bg-white/20 w-14 h-14 flex items-center justify-center rounded-2xl shadow-inner">${cat.icon}</div>
+                        <div>
+                            <div class="text-[10px] font-bold tracking-widest text-pink-300 uppercase mb-1">${cat.name}</div>
+                            <div class="text-lg font-semibold leading-tight">${winnerText}</div>
+                        </div>
+                    </div>
+                    <div class="text-date-neon opacity-80 text-2xl relative z-10">♡</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        document.getElementById('btn-share').addEventListener('click', async () => {
+            let text = "Our D.A.T.E. Night Plan! ❤️\n\n";
+            CATEGORIES.forEach(cat => {
+                const winnerIndex = Array.from(document.getElementById(`elim-card-${cat.id}`).querySelectorAll('.elim-item'))
+                                         .findIndex(el => !el.classList.contains('crossed'));
+                text += `${cat.icon} ${cat.name}: ${gameState.options[cat.id][winnerIndex]}\n`;
+            });
+            text += "\nDecided by the D.A.T.E. Game 💋";
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'Our Date Night', text: text });
+                } catch (err) {
+                    console.log('Share canceled or failed', err);
+                }
+            } else {
+                navigator.clipboard.writeText(text).then(() => {
+                    const btn = document.getElementById('btn-share');
+                    const origHtml = btn.innerHTML;
+                    btn.innerHTML = "COPIED TO CLIPBOARD! ✓";
+                    setTimeout(() => btn.innerHTML = origHtml, 2000);
+                });
+            }
+        });
+
+        function playAgainSame() {
+            gameState.eliminationNumber = 0; 
+            goToScreen('screen-spiral');
+        }
+
+        function startFresh() {
+            gameState.options = {};
+            gameState.eliminationNumber = 0;
+            goToScreen('screen-setup');
+        }
+
+        // INIT
+        goToScreen('screen-start');
+
+    </script>
+</body>
+</html>
